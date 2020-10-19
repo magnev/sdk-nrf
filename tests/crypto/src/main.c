@@ -103,6 +103,10 @@ void test_main(void)
 		   ITEM_COUNT(test_case_ecdh_data, test_case_t));
 	run_suites(__start_test_case_ecjpake_data,
 		   ITEM_COUNT(test_case_ecjpake_data, test_case_t));
+	run_suites(__start_test_case_kdf_cmac_key_data,
+		   ITEM_COUNT(test_case_kdf_cmac_key_data, test_case_t));
+	run_suites(__start_test_case_kdf_cmac_data,
+		   ITEM_COUNT(test_case_kdf_cmac_data, test_case_t));
 
 	#if defined(CONFIG_CRYPTO_TEST_HASH)
 	run_suites(__start_test_case_sha_256_data,

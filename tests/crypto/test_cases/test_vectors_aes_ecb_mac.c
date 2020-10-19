@@ -169,7 +169,7 @@ ITEM_REGISTER(test_vector_aes_ecb_mac_data,
 	.expected_err_code = 0,
 	.expected_result = EXPECTED_TO_PASS,
 	.direction = MBEDTLS_ENCRYPT,
-	.p_test_vector_name = TV_NAME("CMAC 256 message_len=20"),
+	.p_test_vector_name = TV_NAME("CMAC 256 message_len=32"),
 	.p_plaintext = "6bc1bee22e409f96e93d7e117393172aae2d8a57",
 	.p_ciphertext = "156727dc0878944a023c1fe03bad6d93",
 	.p_key = "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"

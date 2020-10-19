@@ -129,6 +129,16 @@ KEEP(*(test_vector_hkdf_data))
 __stop_test_vector_hkdf_data = .;
 
 . = ALIGN(4);
+__start_test_vector_kdf_cmac_key_data = .;
+KEEP(*(test_vector_kdf_cmac_key_data))
+__stop_test_vector_kdf_cmac_key_data = .;
+
+. = ALIGN(4);
+__start_test_vector_kdf_cmac_data = .;
+KEEP(*(test_vector_kdf_cmac_data))
+__stop_test_vector_kdf_cmac_data = .;
+
+. = ALIGN(4);
 __start_test_vector_hmac_data = .;
 KEEP(*(test_vector_hmac_data))
 __stop_test_vector_hmac_data = .;
@@ -182,6 +192,16 @@ __stop_test_case_hmac_data = .;
 __start_test_case_hkdf_data = .;
 KEEP(*(test_case_hkdf_data))
 __stop_test_case_hkdf_data = .;
+
+. = ALIGN(4);
+__start_test_case_kdf_cmac_key_data = .;
+KEEP(*(test_case_kdf_cmac_key_data))
+__stop_test_case_kdf_cmac_key_data = .;
+
+. = ALIGN(4);
+__start_test_case_kdf_cmac_data = .;
+KEEP(*(test_case_kdf_cmac_data))
+__stop_test_case_kdf_cmac_data = .;
 
 . = ALIGN(4);
 __start_test_case_ecdh_data = .;

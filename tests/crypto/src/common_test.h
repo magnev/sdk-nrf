@@ -130,6 +130,8 @@ enum test_vector_t {
 	TV_HASH,
 	TV_HMAC,
 	TV_HKDF,
+	TV_KDF_CMAC,
+	TV_KDF_CMAC_KEY,
 	TV_ECJPAKE,
 };
 
@@ -156,6 +158,12 @@ extern test_case_t __stop_test_case_hmac_data[];
 
 extern test_case_t __start_test_case_hkdf_data[];
 extern test_case_t __stop_test_case_hkdf_data[];
+
+extern test_case_t __start_test_case_kdf_cmac_key_data[];
+extern test_case_t __stop_test_case_kdf_cmac_key_data[];
+
+extern test_case_t __start_test_case_kdf_cmac_data[];
+extern test_case_t __stop_test_case_kdf_cmac_data[];
 
 extern test_case_t __start_test_case_ecdh_data[];
 extern test_case_t __stop_test_case_ecdh_data[];
@@ -423,6 +431,32 @@ typedef const struct {
 	const char *p_info; /**< Pointer to hkdf optional application specific
 						 information in hex string format. */
 } test_vector_hkdf_t;
+
+/**@brief cmac kdf test vector information.
+ */
+typedef const struct {
+	const int expected_err_code; /**< Expected error code from cmac kdf operation. */
+	const uint8_t expected_result; /**< Expected result of cmac kdf operation. */
+	const char *p_test_vector_name; /**< Pointer to cmac kdf test vector name. */
+	const uint8_t ki_slot_id; /**< Slot id in KMU to use as Ki. */
+	const uint8_t ki_length; /**< Ki length in bytes. */
+	const char *
+		p_ko; /**< Pointer to cmac kdf Output Key Material in hex string format. */
+	const char *p_label; /**< Pointer to hkdf salt in hex string format. */
+	const char *
+		p_context; /**< Pointer to hkdf PseudoRandom Key in hex string format. */
+} test_vector_kdf_cmac_t;
+
+/**@brief cmac kdf key (Ki) information.
+ */
+typedef const struct {
+	const int expected_err_code; /**< Expected error code from KMU store. */
+	const uint8_t slot_id; 		/**< Slot id in KMU to store the key. */
+	const uint8_t ki_length;   /**< Length of key to store in bytes. */
+	const char *p_test_vector_name; /**< Pointer to cmac kdf key name. */
+	const char *
+		p_ki; /**< Pointer to cmac kdf Input Key Material in hex string format. */
+} test_vector_kdf_cmac_key_t;
 
 const char *get_vector_name(const test_case_t *tc, uint32_t v);
 uint32_t get_vector_count(const test_case_t *tc);
