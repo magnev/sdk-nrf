@@ -3,6 +3,10 @@
 Certification and version dependencies
 ######################################
 
+.. contents::
+   :local:
+   :depth: 2
+
 Every released version of the LwM2M carrier library is considered for certification with applicable carriers.
 The LwM2M carrier library is certified together with specific versions of the modem firmware and the |NCS|.
 Refer to the :ref:`liblwm2m_carrier_changelog` or the :ref:`versiondep_table` to check the certification status of a particular version of the library, and to see the version of the |NCS| it was released with.
@@ -25,6 +29,10 @@ See the following table for the certification status of the library and the rela
 | LwM2M carrier   | Modem version | |NCS| release | Certification |
 | library version |               |               |               |
 +=================+===============+===============+===============+
+| 0.10.0          | 1.1.4         | 1.4.0         |               |
+|                 |               |               |               |
+|                 | 1.2.2         |               |               |
++-----------------+---------------+---------------+---------------+
 | 0.9.1           | 1.2.1         | 1.3.1         | AT&T          |
 +-----------------+---------------+---------------+---------------+
 | 0.9.0           | 1.2.1         | 1.3.0         |               |

@@ -3,6 +3,10 @@
 Bluetooth: Peripheral LBS
 #########################
 
+.. contents::
+   :local:
+   :depth: 2
+
 The peripheral LBS sample demonstrates how to use the :ref:`lbs_readme`.
 
 Overview
@@ -61,6 +65,16 @@ Building and Running
 .. include:: /includes/build_and_run.txt
 
 .. _peripheral_lbs_testing:
+
+Minimal Build
+=============
+
+The sample can be built with a minimum configuration as a demonstration of how to reduce code size and RAM usage.
+
+.. code-block:: console
+
+   west build samples/bluetooth/peripheral_lbs -- -DOVERLAY_CONFIG='minimal.conf'
+
 
 Testing
 =======
