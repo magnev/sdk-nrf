@@ -50,12 +50,18 @@ nRF9160
     * Added function :c:func:`nrf_cloud_modem_fota_completed` which is to be called by the application after it re-initializes the modem (instead of rebooting) after a modem FOTA update.
     * Updated to include the FOTA type value in the :c:enumerator:`NRF_CLOUD_EVT_FOTA_DONE` event.
     * Updated configuration options for setting the source of the MQTT client ID (nRF Cloud device ID).
+    * Updated nRF Cloud FOTA to use type validated FOTA download.
 
   * :ref:`asset_tracker` application:
 
     * Updated to handle new Kconfig options:
 
       * :option:`CONFIG_NRF_CLOUD_CELL_POS`
+
+  * :ref:`asset_tracker_v2` application:
+
+    * Added support for Azure IoT Hub.
+    * Added support for nRF Cloud.
 
   * :ref:`modem_info_readme` library:
 
@@ -65,6 +71,7 @@ nRF9160
 
     * Added an API to retrieve the image type that is being downloaded.
     * Added an API to cancel current downloading.
+    * Added an API to validate FOTA image type before starting installation.
 
   * :ref:`lib_ftp_client` library:
 
@@ -105,10 +112,6 @@ nRF9160
 
     * Added support for the nRF9160 pulse-density modulation (PDM) and inter-IC sound (I2S) peripherals in non-secure applications.
 
-  * :ref:`at_host_sample` sample:
-
-    * Renamed nRF9160: AT Client sample to :ref:`at_host_sample`.
-
   * :ref:`gps_api`:
 
     * Renamed gps_agps_request() to gps_agps_request_send().
@@ -123,6 +126,10 @@ nRF9160
       * ``CONFIG_USE_CLOUD_CLIENT_ID`` renamed to :option:`CONFIG_USE_CUSTOM_CLIENT_ID`.
       * ``CONFIG_CLOUD_CLIENT_ID`` renamed to ``CONFIG_CLIENT_ID``.
       * ``CONFIG_NRF_CLOUD_CLIENT_ID_PREFIX`` renamed to ``CONFIG_CLIENT_ID_PREFIX``.
+
+  * :ref:`lib_aws_fota` library:
+
+    * Updated internal state handling and fault tolerance.
 
 nRF5
 ====
@@ -144,17 +151,24 @@ Thread
 
 * Added support for the following Thread 1.2 features:
 
+  * Domain Unicast Addresses
+  * Multicast Listener Registration
+  * Backbone Router (Thread Network side only)
   * Link Metrics
   * Coordinated Sampled Listening (CSL)
 
-  These features are supported for nRF52 Series devices.
+  Link Metrics and CSL are supported for nRF52 Series devices.
+
+* NCP sample renamed to Co-processor, with added support for RCP architecture.
 
 Zigbee
 ------
 
+* Added the v0.9.5 version of the `ZBOSS NCP Host`_ package that includes a simple gateway application.
 * Updated:
 
-  * Reworked the :ref:`NCP sample <zigbee_ncp_sample>` to include a simple gateway application.
+  * Reworked the :ref:`NCP sample <zigbee_ncp_sample>` to work with the simple gateway application.
+  * Moved the `NCP Host documentation`_ from the `ZBOSS NCP Host`_ package to the same location as the `external ZBOSS development guide and API documentation`_.
 
 Common
 ======
