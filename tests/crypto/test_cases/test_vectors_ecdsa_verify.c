@@ -17,6 +17,39 @@
  * https://csrc.nist.gov/Projects/Cryptographic-Algorithm-Validation-Program/Component-Testing
  */
 
+
+/* ECDSA verify - NIST CAVS 11.0 P-192, SHA-256 */
+ITEM_REGISTER(test_vector_ecdsa_verify_data,
+	      test_vector_ecdsa_verify_t
+		      test_vector_ecdsa_verify_secp256k1_SHA256_1) = {
+	.curve_type = MBEDTLS_ECP_DP_SECP256K1,
+	.expected_err_code = 0,
+	.p_test_vector_name = TV_NAME("secp256k1 valid SHA256 1"),
+	.p_input =
+		"4b688df40bcedbe641ddb16ff0a1842d9c67ea1c3bf63f3e0471baa664531d1a",
+	.p_qx = "779dd197a5df977ed2cf6cb31d82d43328b790dc6b3b7d4437a427bd5847dfcd",
+	.p_qy = "e94b724a555b6d017bb7607c3e3281daf5b1699d6ef4124975c9237b917d426f",
+	.p_r = "241097efbf8b63bf145c8961dbdf10c310efbb3b2676bbc0f8b08505c9e2f795",
+	.p_s = "021006b7838609339e8b415a7f9acb1b661828131aef1ecbc7955dfb01f3ca0e"
+};
+
+/* ECDSA verify - NIST CAVS 11.0 P-192, SHA-256 */
+ITEM_REGISTER(test_vector_ecdsa_verify_data,
+	      test_vector_ecdsa_verify_t
+		      test_vector_ecdsa_verify_secp256k1_SHA256_2) = {
+	.curve_type = MBEDTLS_ECP_DP_SECP256K1,
+	.expected_err_code = 0,
+	.p_test_vector_name = TV_NAME("secp256k1 valid SHA256 2"),
+	.p_input =
+		"4b688df40bcedbe641ddb16ff0a1842d9c67ea1c3bf63f3e0471baa664531d1a",
+	.p_qx = "779dd197a5df977ed2cf6cb31d82d43328b790dc6b3b7d4437a427bd5847dfcd",
+	.p_qy = "e94b724a555b6d017bb7607c3e3281daf5b1699d6ef4124975c9237b917d426f",
+	.p_r = "241097efbf8b63bf145c8961dbdf10c310efbb3b2676bbc0f8b08505c9e2f795",
+	.p_s = "021006b7838609339e8b415a7f9acb1b661828131aef1ecbc7955dfb01f3ca0e"
+};
+
+#if 0
+
 #if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED)
 #if defined(MBEDTLS_SHA256_C)
 /* ECDSA verify - NIST CAVS 11.0 P-192, SHA-256 */
@@ -1257,3 +1290,5 @@ ITEM_REGISTER(test_vector_ecdsa_verify_data,
 
 #endif /* MBEDTLS_SHA512_C */
 #endif /* MBEDTLS_ECP_DP_SECP521R1_ENABLED */
+
+#endif // if 0

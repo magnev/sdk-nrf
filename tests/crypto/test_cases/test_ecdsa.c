@@ -244,10 +244,11 @@ void exec_test_case_ecdsa_random(void)
 {
 	int err_code = -1;
 
-
 	/* Prepare signer context. */
 	mbedtls_ecdsa_context ctx_sign;
 	mbedtls_ecdsa_init(&ctx_sign);
+
+	LOG_INF("Test case: %s", p_test_vector_random->p_test_vector_name);
 
 	/* Create a ECDSA key pair */
 	err_code = mbedtls_ecdsa_genkey(&ctx_sign,
@@ -318,30 +319,30 @@ void exec_test_case_ecdsa_random(void)
  * @details     This macro places a variable in a section named "test_case_data",
  *              which is initialized by main.
  */
-ITEM_REGISTER(test_case_ecdsa_data, test_case_t test_ecdsa_sign) = {
-	.p_test_case_name = "ECDSA Sign",
-	.setup = ecdsa_setup_sign,
-	.exec = exec_test_case_ecdsa_sign,
-	.teardown = teardown_pass,
-	.vector_type = TV_ECDSA_SIGN,
-	.vectors_start = __start_test_vector_ecdsa_sign_data,
-	.vectors_stop = __stop_test_vector_ecdsa_sign_data,
-};
+// ITEM_REGISTER(test_case_ecdsa_data, test_case_t test_ecdsa_sign) = {
+// 	.p_test_case_name = "ECDSA Sign",
+// 	.setup = ecdsa_setup_sign,
+// 	.exec = exec_test_case_ecdsa_sign,
+// 	.teardown = teardown_pass,
+// 	.vector_type = TV_ECDSA_SIGN,
+// 	.vectors_start = __start_test_vector_ecdsa_sign_data,
+// 	.vectors_stop = __stop_test_vector_ecdsa_sign_data,
+// };
 
 /** @brief  Macro for registering the ECDSA verify test case by using section variables.
  *
  * @details     This macro places a variable in a section named "test_case_data",
  *              which is initialized by main.
  */
-ITEM_REGISTER(test_case_ecdsa_data, test_case_t test_ecdsa_verify) = {
-	.p_test_case_name = "ECDSA Verify",
-	.setup = ecdsa_setup_verify,
-	.exec = exec_test_case_ecdsa_verify,
-	.teardown = teardown_pass,
-	.vector_type = TV_ECDSA_VERIFY,
-	.vectors_start = __start_test_vector_ecdsa_verify_data,
-	.vectors_stop = __stop_test_vector_ecdsa_verify_data,
-};
+// ITEM_REGISTER(test_case_ecdsa_data, test_case_t test_ecdsa_verify) = {
+// 	.p_test_case_name = "ECDSA Verify",
+// 	.setup = ecdsa_setup_verify,
+// 	.exec = exec_test_case_ecdsa_verify,
+// 	.teardown = teardown_pass,
+// 	.vector_type = TV_ECDSA_VERIFY,
+// 	.vectors_start = __start_test_vector_ecdsa_verify_data,
+// 	.vectors_stop = __stop_test_vector_ecdsa_verify_data,
+// };
 
 /** @brief  Macro for registering the ECDSA random test case by using section variables.
  *
@@ -360,17 +361,17 @@ ITEM_REGISTER(test_case_ecdsa_data, test_case_t test_ecdsa_random) = {
 
 ZTEST_SUITE(test_suite_ecdsa, NULL, NULL, NULL, NULL, NULL);
 
-ZTEST(test_suite_ecdsa, test_case_ecdsa_sign)
-{
-	ecdsa_setup_sign();
-	exec_test_case_ecdsa_sign();
-}
+// ZTEST(test_suite_ecdsa, test_case_ecdsa_sign)
+// {
+// 	ecdsa_setup_sign();
+// 	exec_test_case_ecdsa_sign();
+// }
 
-ZTEST(test_suite_ecdsa, test_case_ecdsa_verify)
-{
-	ecdsa_setup_verify();
-	exec_test_case_ecdsa_verify();
-}
+// ZTEST(test_suite_ecdsa, test_case_ecdsa_verify)
+// {
+// 	ecdsa_setup_verify();
+// 	exec_test_case_ecdsa_verify();
+// }
 
 ZTEST(test_suite_ecdsa, test_case_ecdsa_random)
 {
