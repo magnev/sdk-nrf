@@ -29,6 +29,10 @@ static struct esb_payload rx_payload;
 static struct esb_payload tx_payload = ESB_CREATE_PAYLOAD(0,
 	0x01, 0x00, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08);
 
+
+volatile uint32_t num_packets_sent = 0;
+volatile uint32_t num_packets_remaining = 100;
+
 #define _RADIO_SHORTS_COMMON                                                   \
 	(RADIO_SHORTS_READY_START_Msk | RADIO_SHORTS_END_DISABLE_Msk |         \
 	 RADIO_SHORTS_ADDRESS_RSSISTART_Msk |                                  \
@@ -40,14 +44,15 @@ void event_handler(struct esb_evt const *event)
 
 	switch (event->evt_id) {
 	case ESB_EVENT_TX_SUCCESS:
-		LOG_DBG("TX SUCCESS EVENT");
+		// LOG_DBG("TX SUCCESS EVENT");
+		num_packets_sent++;
 		break;
 	case ESB_EVENT_TX_FAILED:
 		LOG_DBG("TX FAILED EVENT");
 		break;
 	case ESB_EVENT_RX_RECEIVED:
 		while (esb_read_rx_payload(&rx_payload) == 0) {
-			LOG_DBG("Packet received, len %d : "
+			LOG_ERR("RECEIVED PAYLOAD!, len %d : "
 				"0x%02x, 0x%02x, 0x%02x, 0x%02x, "
 				"0x%02x, 0x%02x, 0x%02x, 0x%02x",
 				rx_payload.length, rx_payload.data[0],
@@ -183,15 +188,9 @@ int esb_initialize(void)
 	return 0;
 }
 
-static void leds_update(uint8_t value)
+void increment_payload(uint8_t* payload_0)
 {
-	uint32_t leds_mask =
-		(!(value % 8 > 0 && value % 8 <= 4) ? DK_LED1_MSK : 0) |
-		(!(value % 8 > 1 && value % 8 <= 5) ? DK_LED2_MSK : 0) |
-		(!(value % 8 > 2 && value % 8 <= 6) ? DK_LED3_MSK : 0) |
-		(!(value % 8 > 3) ? DK_LED4_MSK : 0);
-
-	dk_set_leds(leds_mask);
+    *payload_0 = (*payload_0 + 1) % 100;
 }
 
 int main(void)
@@ -221,18 +220,27 @@ int main(void)
 	LOG_INF("Sending test packet");
 
 	tx_payload.noack = false;
-	while (1) {
-		if (ready) {
-			ready = false;
-			esb_flush_tx();
-			leds_update(tx_payload.data[1]);
+	while (num_packets_remaining) {
 
 			err = esb_write_payload(&tx_payload);
-			if (err) {
-				LOG_ERR("Payload write failed, err %d", err);
+			if (err == 0)
+			{
+				increment_payload(&(tx_payload.data[0]));
+				num_packets_remaining--;
 			}
-			tx_payload.data[1]++;
-		}
-		k_sleep(K_MSEC(100));
+			else if (err == -ENOMEM)
+			{
+				(void)esb_start_tx();
+			}
+			else
+			{
+				LOG_ERR( "error:esb_write_payload:0x%04x", err);
+				return -1;
+			}
+		k_sleep(K_MSEC(1));
 	}
+
+	k_sleep(K_MSEC(2000));
+
+	LOG_INF("PTX DONE: Sent %d packets", num_packets_sent);
 }

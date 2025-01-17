@@ -28,16 +28,9 @@ static struct esb_payload rx_payload;
 static struct esb_payload tx_payload = ESB_CREATE_PAYLOAD(0,
 	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17);
 
-static void leds_update(uint8_t value)
-{
-	uint32_t leds_mask =
-		(!(value % 8 > 0 && value % 8 <= 4) ? DK_LED1_MSK : 0) |
-		(!(value % 8 > 1 && value % 8 <= 5) ? DK_LED2_MSK : 0) |
-		(!(value % 8 > 2 && value % 8 <= 6) ? DK_LED3_MSK : 0) |
-		(!(value % 8 > 3) ? DK_LED4_MSK : 0);
+uint32_t num_packets = 0;
+uint32_t sum_packets = 0;
 
-	dk_set_leds(leds_mask);
-}
 
 void event_handler(struct esb_evt const *event)
 {
@@ -50,16 +43,8 @@ void event_handler(struct esb_evt const *event)
 		break;
 	case ESB_EVENT_RX_RECEIVED:
 		if (esb_read_rx_payload(&rx_payload) == 0) {
-			LOG_DBG("Packet received, len %d : "
-				"0x%02x, 0x%02x, 0x%02x, 0x%02x, "
-				"0x%02x, 0x%02x, 0x%02x, 0x%02x",
-				rx_payload.length, rx_payload.data[0],
-				rx_payload.data[1], rx_payload.data[2],
-				rx_payload.data[3], rx_payload.data[4],
-				rx_payload.data[5], rx_payload.data[6],
-				rx_payload.data[7]);
-
-			leds_update(rx_payload.data[1]);
+			num_packets++;
+			sum_packets += rx_payload.data[0];
 		} else {
 			LOG_ERR("Error while reading rx packet");
 		}
@@ -227,6 +212,16 @@ int main(void)
 		LOG_ERR("RX setup failed, err %d", err);
 		return 0;
 	}
+
+	while(num_packets < 100)
+	{
+		k_sleep(K_MSEC(1));
+	}
+
+	k_sleep(K_MSEC(1000));
+
+	LOG_INF("PRX DONE: Received %d packets", num_packets);
+	LOG_INF("PRX DONE: SUM: %d, should be 4950", sum_packets);
 
 	/* return to idle thread */
 	return 0;
