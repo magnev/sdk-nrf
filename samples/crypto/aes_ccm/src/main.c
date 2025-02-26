@@ -12,20 +12,17 @@
 #include <psa/crypto.h>
 #include <psa/crypto_extra.h>
 
-#ifdef CONFIG_BUILD_WITH_TFM
-#include <tfm_ns_interface.h>
-#endif
 
-#define APP_SUCCESS		(0)
-#define APP_ERROR		(-1)
+#define APP_SUCCESS	    (0)
+#define APP_ERROR	    (-1)
 #define APP_SUCCESS_MESSAGE "Example finished successfully!"
-#define APP_ERROR_MESSAGE "Example exited with error!"
+#define APP_ERROR_MESSAGE   "Example exited with error!"
 
-#define PRINT_HEX(p_label, p_text, len)\
-	({\
-		LOG_INF("---- %s (len: %u): ----", p_label, len);\
-		LOG_HEXDUMP_INF(p_text, len, "Content:");\
-		LOG_INF("---- %s end  ----", p_label);\
+#define PRINT_HEX(p_label, p_text, len)                                                            \
+	({                                                                                         \
+		LOG_INF("---- %s (len: %u): ----", p_label, len);                                  \
+		LOG_HEXDUMP_INF(p_text, len, "Content:");                                          \
+		LOG_INF("---- %s end  ----", p_label);                                             \
 	})
 
 LOG_MODULE_REGISTER(aes_ccm, LOG_LEVEL_DBG);
@@ -33,30 +30,72 @@ LOG_MODULE_REGISTER(aes_ccm, LOG_LEVEL_DBG);
 /* ====================================================================== */
 /*				Global variables/defines for the AES CCM example		  */
 
-#define NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE (100)
+#define NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE   (100)
 #define NRF_CRYPTO_EXAMPLE_AES_ADDITIONAL_SIZE (35)
-#define NRF_CRYPTO_EXAMPLE_AES_CCM_NONCE_SIZE (13)
-#define NRF_CRYPTO_EXAMPLE_AES_CCM_TAG_LENGTH (16)
+#define NRF_CRYPTO_EXAMPLE_AES_CCM_NONCE_SIZE  (13)
+#define NRF_CRYPTO_EXAMPLE_AES_CCM_TAG_LENGTH  (16)
+
+// #define CCM_REPETITIONS 8192
+#define CCM_REPETITIONS 8190
+#define CCM_BLOCK_SIZE	128
 
 /* AES sample nonce, DO NOT USE IN PRODUCTION */
-static uint8_t m_nonce[NRF_CRYPTO_EXAMPLE_AES_CCM_NONCE_SIZE] = {
-	'S', 'A', 'M', 'P', 'L', 'E', ' ', 'N', 'O', 'N', 'C', 'E'
-};
+static uint8_t m_nonce[] = {0xb6, 0x06, 0x63, 0x8f, 0xeb, 0xbd, 0x68, 0x94, 0xef, 0x08, 0x7d, 0x91};
 
 /* Below text is used as plaintext for encryption/decryption */
-static uint8_t m_plain_text[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE] = {
-	"Example string to demonstrate basic usage of AES CCM mode."
+static uint8_t m_plain_text[128] = {
+	0x73, 0x69, 0x78, 0x74, 0x79, 0x20, 0x66, 0x6f, 0x75, 0x72, 0x20, 0x62, 0x79, 0x74, 0x65,
+	0x73, 0x20, 0x6f, 0x66, 0x20, 0x63, 0x69, 0x70, 0x68, 0x65, 0x72, 0x20, 0x74, 0x65, 0x78,
+	0x74, 0x20, 0x74, 0x68, 0x61, 0x74, 0x20, 0x63, 0x61, 0x6e, 0x20, 0x62, 0x65, 0x20, 0x75,
+	0x73, 0x65, 0x64, 0x20, 0x66, 0x6f, 0x72, 0x20, 0x64, 0x65, 0x63, 0x72, 0x79, 0x70, 0x74,
+	0x69, 0x6f, 0x6e, 0x21, 0x20, 0x57, 0x72, 0x69, 0x74, 0x69, 0x6e, 0x67, 0x20, 0x6d, 0x6f,
+	0x72, 0x65, 0x20, 0x6a, 0x75, 0x73, 0x74, 0x20, 0x74, 0x6f, 0x20, 0x6d, 0x61, 0x6b, 0x65,
+	0x20, 0x74, 0x68, 0x69, 0x73, 0x20, 0x6f, 0x6e, 0x65, 0x20, 0x74, 0x77, 0x65, 0x6e, 0x74,
+	0x79, 0x20, 0x65, 0x69, 0x67, 0x68, 0x74, 0x20, 0x62, 0x69, 0x74, 0x73, 0x20, 0x6c, 0x6f,
+	0x6e, 0x67, 0x21, 0x21, 0x21, 0x21, 0x21, 0x21};
+
+static uint8_t m_key[] = {0xcc, 0xe6, 0xd1, 0x30, 0x28, 0x12, 0xc3, 0x7f,
+			  0x64, 0x1f, 0x3a, 0x60, 0x0e, 0x9c, 0xd7, 0x35};
+
+// 8192
+// static uint8_t m_output_last[128] = {
+//     0x94, 0xfe, 0xfd, 0x8c, 0xe7, 0xa5, 0xa8, 0xcb, 0x65, 0x89, 0x7f, 0x37, 0x88, 0x06, 0x2e, 0xc1,
+// 	0x5e, 0xe6, 0x04, 0xc5, 0x0d, 0xed, 0x0f, 0x6d, 0x41, 0x99, 0x66, 0x94, 0xeb, 0x49, 0xf8, 0xf7,
+// 	0xd7, 0xd0, 0xa0, 0x57, 0xe4, 0xcf, 0x95, 0x1f, 0x56, 0x36, 0x3a, 0xf8, 0x71, 0x8b, 0x99, 0x1c,
+// 	0x01, 0x05, 0xc0, 0xb5, 0x53, 0x63, 0x26, 0x61, 0x53, 0x8d, 0xc7, 0x78, 0xe4, 0xbb, 0x77, 0x7d,
+// 	0xff, 0x9f, 0xd5, 0xd3, 0xe5, 0xaf, 0xa5, 0x19, 0x45, 0x42, 0xc5, 0x27, 0x7f, 0x66, 0x9c, 0x6c,
+// 	0x01, 0x17, 0xf3, 0x9a, 0x49, 0xb0, 0xeb, 0x5c, 0xf3, 0xfa, 0xc9, 0x2d, 0xb6, 0x4a, 0x39, 0xda,
+// 	0xac, 0xe3, 0xdf, 0xc1, 0x5b, 0xa7, 0x4b, 0x9e, 0x3c, 0xb7, 0xab, 0xc5, 0x0b, 0xf3, 0x39, 0xcc,
+// 	0x21, 0x9d, 0xf9, 0x76, 0x29, 0x13, 0x2b, 0x5f, 0xa7, 0x43, 0x7a, 0x7f, 0xea, 0xb4, 0x23, 0xe5};
+
+// 8190
+static uint8_t m_output_last[128] = {
+	0xe3, 0xdb, 0x59, 0xa7, 0xaf, 0x74, 0xdf, 0x31, 0xb1, 0x56, 0x33, 0x8b, 0x8c, 0x83, 0xcf, 0x41,
+	0x60, 0x0c, 0xb8, 0xb8, 0x8a, 0x01, 0xa8, 0xc9, 0x94, 0x81, 0x37, 0xf3, 0xfe, 0xf3, 0x21, 0xe8,
+	0x60, 0x36, 0xbf, 0xff, 0xdb, 0xa3, 0x51, 0x7c, 0x2d, 0x77, 0x05, 0x2d, 0x34, 0xe5, 0x3e, 0x30,
+	0x77, 0x42, 0xa6, 0xad, 0x5e, 0x5d, 0xec, 0x99, 0xdf, 0xd5, 0xf5, 0xa6, 0xee, 0x9e, 0xde, 0xfc,
+	0x20, 0x96, 0xe6, 0x81, 0x3e, 0x99, 0xae, 0xf9, 0x22, 0x48, 0x90, 0x95, 0x73, 0xab, 0x42, 0xd9,
+	0xeb, 0x4c, 0x61, 0xd8, 0x87, 0xb6, 0x4a, 0xc5, 0xd6, 0x00, 0x1d, 0xa1, 0x36, 0x8d, 0x74, 0xd2,
+	0xe0, 0x6a, 0xf4, 0xd4, 0x22, 0x05, 0x1a, 0x9e, 0x29, 0xd5, 0xd1, 0xac, 0x92, 0x1b, 0xcd, 0xdc,
+	0x3f, 0xaa, 0x79, 0x7b, 0xc9, 0xff, 0x6b, 0xea, 0x33, 0xf3, 0xb2, 0xee, 0x49, 0x7b, 0xca, 0x4b
 };
 
-/* Below text is used as additional data for authentication */
-static uint8_t m_additional_data[NRF_CRYPTO_EXAMPLE_AES_ADDITIONAL_SIZE] = {
-	"Example string of additional data"
-};
+static uint8_t m_output_first[128] = {
+	0xe9, 0x8a, 0x81, 0x59, 0xd8, 0x32, 0xa6, 0x5c, 0x99, 0xbd, 0x9d, 0x62, 0x02, 0x18, 0x9e,
+	0xa3, 0x88, 0x63, 0x6c, 0x39, 0x15, 0x09, 0x84, 0xd6, 0x36, 0x3f, 0x6f, 0x7f, 0xeb, 0x6e,
+	0x7e, 0x3a, 0xe7, 0x17, 0xf4, 0xe1, 0x6c, 0x93, 0x1e, 0x08, 0xad, 0x59, 0x7d, 0x01, 0xf7,
+	0x8a, 0x65, 0xe2, 0x80, 0x11, 0x1d, 0x51, 0xca, 0xdb, 0x89, 0xd9, 0xd4, 0x28, 0x1c, 0xbc,
+	0xd4, 0xb5, 0x25, 0xbc, 0x07, 0x0d, 0x52, 0xe8, 0x2d, 0x82, 0x9c, 0x6f, 0x91, 0x12, 0xc3,
+	0x48, 0x4c, 0x36, 0x9d, 0xe2, 0x88, 0xe8, 0x5d, 0x23, 0xbf, 0x51, 0x38, 0x30, 0xe4, 0xdb,
+	0xf9, 0x50, 0x25, 0xf5, 0xa5, 0x9f, 0xb6, 0xf2, 0xbd, 0xc5, 0xb9, 0xb5, 0x92, 0x16, 0xa1,
+	0xae, 0x02, 0x18, 0x8c, 0x7c, 0xf8, 0x1d, 0xf5, 0x70, 0xaf, 0x0d, 0x08, 0x04, 0x81, 0x00,
+	0x03, 0x81, 0x38, 0x4c, 0xdd, 0xd1, 0x17, 0x0a};
 
-static uint8_t m_encrypted_text[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE +
-				NRF_CRYPTO_EXAMPLE_AES_CCM_TAG_LENGTH];
+// 8192
+// static uint8_t m_tag[] = {0x1d, 0x70, 0x00, 0xe0, 0x7d, 0x93, 0xf7, 0x48, 0xc3, 0xd1, 0x33, 0xd0, 0x79, 0x47, 0x69, 0xf7};
 
-static uint8_t m_decrypted_text[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE];
+// 8190
+static uint8_t m_tag[] = {0x22, 0xc9, 0x8f, 0xda, 0x85, 0xef, 0xad, 0x51, 0x6a, 0xad, 0x82, 0x9c, 0x60, 0x8d, 0x46, 0x3b};
 
 static psa_key_id_t key_id;
 /* ====================================================================== */
@@ -87,7 +126,7 @@ int crypto_finish(void)
 	return APP_SUCCESS;
 }
 
-int generate_key(void)
+int import_key(void)
 {
 	psa_status_t status;
 
@@ -105,7 +144,7 @@ int generate_key(void)
 	/* Generate a random key. The key is not exposed to the application,
 	 * we can use it to encrypt/decrypt using the key handle
 	 */
-	status = psa_generate_key(&key_attributes, &key_id);
+	status = psa_import_key(&key_attributes, m_key, sizeof(m_key), &key_id);
 	if (status != PSA_SUCCESS) {
 		LOG_INF("psa_generate_key failed! (Error: %d)", status);
 		return APP_ERROR;
@@ -119,72 +158,92 @@ int generate_key(void)
 	return APP_SUCCESS;
 }
 
-int encrypt_ccm_aes(void)
+int decrypt_ccm_aes(void)
 {
-	uint32_t output_len;
 	psa_status_t status;
 
-	LOG_INF("Encrypting using AES CCM MODE...");
+	LOG_INF("Decrypting using AES CCM MODE...");
 
-	/* Encrypt the plaintext and create the authentication tag */
-	status = psa_aead_encrypt(key_id,
-							  PSA_ALG_CCM,
-							  m_nonce,
-							  sizeof(m_nonce),
-							  m_additional_data,
-							  sizeof(m_additional_data),
-							  m_plain_text,
-							  sizeof(m_plain_text),
-							  m_encrypted_text,
-							  sizeof(m_encrypted_text),
-							  &output_len);
+	psa_aead_operation_t multipart_aead_op = psa_aead_operation_init();
 
+	status = psa_aead_decrypt_setup(&multipart_aead_op, key_id, PSA_ALG_CCM);
 	if (status != PSA_SUCCESS) {
 		LOG_INF("psa_aead_encrypt failed! (Error: %d)", status);
 		return APP_ERROR;
 	}
 
-	LOG_INF("Encryption successful!");
-	PRINT_HEX("Nonce", m_nonce, sizeof(m_nonce));
-	PRINT_HEX("Additional data", m_additional_data, sizeof(m_additional_data));
-	PRINT_HEX("Plaintext", m_plain_text, sizeof(m_plain_text));
-	PRINT_HEX("Encrypted text", m_encrypted_text, sizeof(m_encrypted_text));
-
-	LOG_INF("Encryption successful!");
-
-	return APP_SUCCESS;
-}
-
-int decrypt_ccm_aes(void)
-{
-	uint32_t output_len;
-	psa_status_t status;
-
-	LOG_INF("Decrypting using AES CCM MODE...");
-
-	/* Decrypt the encrypted data and authenticate the tag */
-	status = psa_aead_decrypt(key_id,
-							  PSA_ALG_CCM,
-							  m_nonce,
-							  sizeof(m_nonce),
-							  m_additional_data,
-							  sizeof(m_additional_data),
-							  m_encrypted_text,
-							  sizeof(m_encrypted_text),
-							  m_decrypted_text,
-							  sizeof(m_decrypted_text),
-							  &output_len);
-
+	/* Some algorithms, like CCM, requires the length of AD and
+    plaintext to be set before setting or generating the nonce. */
+	status =
+		psa_aead_set_lengths(&multipart_aead_op, 0, sizeof(m_plain_text) * CCM_REPETITIONS);
 	if (status != PSA_SUCCESS) {
-		LOG_INF("psa_aead_decrypt failed! (Error: %d)", status);
+		LOG_INF("psa_aead_set_lengths failed! (Error: %d)", status);
 		return APP_ERROR;
 	}
 
-	PRINT_HEX("Decrypted text", m_decrypted_text, sizeof(m_decrypted_text));
+	status = psa_aead_set_nonce(&multipart_aead_op, m_nonce, sizeof(m_nonce));
+	if (status != PSA_SUCCESS) {
+		LOG_INF("psa_aead_set_nonce failed! (Error: %d)", status);
+		return APP_ERROR;
+	}
+
+	size_t out_length = 0;
+	size_t out_length_verify = 0;
+	uint8_t cipher_out_buf[128 * 2] = {
+		0};	       // Must be able to keep both last update output and verify output.
+	uint8_t *cipher_out_p; // Must be able to keep both last update output and verify output.
+	cipher_out_p = cipher_out_buf;
+
+	for (int i = 0; i < CCM_REPETITIONS; i++) {
+		status = psa_aead_update(&multipart_aead_op, m_plain_text, sizeof(m_plain_text),
+					 cipher_out_p, 128, &out_length);
+		if (status != PSA_SUCCESS) {
+			LOG_INF("psa_aead_update failed! i: %d (Error: %d)", i, status);
+			return APP_ERROR;
+		}
+
+		/* Show progress */
+		if ((i % 4096 == 0)) {
+			LOG_INF("Completed %05d blocks", i);
+		}
+
+		// TODO: Remove CRACEN if defs in
+		// https://nordicsemi.atlassian.net/browse/NCSDK-25158 Also see:
+		// https://nordicsemi.atlassian.net/browse/NCSDK-25164 out_length of 112 is returned
+		// on first call to psa_aead_update for CCM/GCM on CRACEN when input block is 128
+		// bytes out_length of 64 bytes is returned on first call to psa_aead_update for
+		// ChaCha20Poly1305 on CRACEN when input block is 128 bytes. Therefore we skip
+		// checking that out_length is 128 on i=0
+		if (i != 0) {
+			if (out_length != 128) {
+				LOG_INF("Error: Decrypted text doesn't match the plaintext");
+				return APP_ERROR;
+			}
+		}
+
+		if (i == 0) {
+			/* Check the validity of the decryption */
+			if (memcmp(cipher_out_p, m_output_first, 112) != 0) {
+				LOG_INF("Error: First decrypted text doesn't match the plaintext");
+				return APP_ERROR;
+			}
+			LOG_INF("Verified first block");
+		} else if (i == CCM_REPETITIONS - 1) {
+			// Prepare for aead_finish/verify, we don't want to overwrite from now on
+			cipher_out_p += out_length;
+		}
+	}
+
+	status = psa_aead_verify(&multipart_aead_op, cipher_out_p, 128, &out_length_verify,
+				 m_tag, sizeof(m_tag));
+	if (status != PSA_SUCCESS) {
+		LOG_INF("psa_aead_verify failed! (Error: %d)", status);
+		return APP_ERROR;
+	}
 
 	/* Check the validity of the decryption */
-	if (memcmp(m_decrypted_text, m_plain_text, NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE) != 0) {
-		LOG_INF("Error: Decrypted text doesn't match the plaintext");
+	if (memcmp(cipher_out_p + out_length_verify - 128, m_output_last, 128) != 0) {
+		LOG_INF("Error: Last decrypted text doesn't match the expected");
 		return APP_ERROR;
 	}
 
@@ -204,13 +263,7 @@ int main(void)
 		return APP_ERROR;
 	}
 
-	status = generate_key();
-	if (status != APP_SUCCESS) {
-		LOG_INF(APP_ERROR_MESSAGE);
-		return APP_ERROR;
-	}
-
-	status = encrypt_ccm_aes();
+	status = import_key();
 	if (status != APP_SUCCESS) {
 		LOG_INF(APP_ERROR_MESSAGE);
 		return APP_ERROR;
