@@ -18,6 +18,7 @@ from pathlib import Path
 from enum import IntEnum
 from cryptography.hazmat.primitives import serialization
 
+
 class PsaKeyType(IntEnum):
     """The type of the key"""
 
@@ -39,13 +40,25 @@ class PsaUsage(IntEnum):
     VERIFY_MESSAGE_EXPORT = 0x0801
     ENCRYPT_DECRYPT = 0x0300
     USAGE_DERIVE = 0x4000
+    ENCRYPT_DECRYPT_EXPORT_COPY = 0x0303
+    ENCRYPT_DECRYPT_EXPORT = 0x0301
+    SIGN_VERIFY_EXPORT = 0x3C01
+
 
 class PsaCracenUsageSceme(IntEnum):
-    NONE = 0xff
+    NONE = 0xFF
     PROTECTED = 0
     SEED = 1
     ENCRYPTED = 2
     RAW = 3
+
+
+class PsaCracenPersistenceSceme(IntEnum):
+    PSA_VOLATILE = 0x00
+    PSA_DEFAULT = 0x01  # Rotating on KMU
+    PSA_REVOKABLE = 0x02  # Revoked on KMU
+    PSA_READ_ONLY = 0x03  # Locked on KMU - FUTURE
+
 
 class PsaKeyLifetime(IntEnum):
     """Lifetime and location for storing key"""
@@ -59,18 +72,22 @@ class PsaAlgorithm(IntEnum):
 
     NONE = 0
     CBC = 0x04404000
+    GCM = 0x05500200
     EDDSA_PURE = 0x06000800
 
 
 class PlatformKeyAttributes:
-    def __init__(self,
-                 key_type: PsaKeyType,
-                 identifier: int,
-                 location: PsaKeyLifetime,
-                 usage: PsaUsage,
-                 algorithm: PsaAlgorithm,
-                 size: int,
-                 cracen_usage: PsaCracenUsageSceme = PsaCracenUsageSceme.NONE):
+    def __init__(
+        self,
+        key_type: PsaKeyType,
+        identifier: int,
+        location: PsaKeyLifetime,
+        usage: PsaUsage,
+        algorithm: PsaAlgorithm,
+        size: int,
+        cracen_usage: PsaCracenUsageSceme = PsaCracenUsageSceme.NONE,
+        persistence: PsaCracenPersistenceSceme = PsaCracenPersistenceSceme.PSA_DEFAULT,
+    ):
 
         self.key_type = key_type
         self.lifetime = location
@@ -79,12 +96,16 @@ class PlatformKeyAttributes:
         self.alg1 = PsaAlgorithm.NONE
         self.bits = size
         self.identifier = identifier
+        self.persistence = persistence
 
         if location == PsaKeyLifetime.PERSISTENT_CRACEN_KMU:
             if cracen_usage == PsaCracenUsageSceme.NONE:
                 print("--cracen_usage must be set if location target is PERSISTENT_CRACEN_KMU")
                 return
-            self.identifier = 0x7fff0000 | (cracen_usage << 12) | (identifier & 0xff)
+            self.identifier = 0x7FFF0000 | (cracen_usage << 12) | (identifier & 0xFF)
+
+            # Set persistence inside the lifetime variable
+            self.lifetime = (self.lifetime & 0xFFFFFF00) | persistence
 
         if self.key_type == PsaKeyType.AES:
             self.alg1 = PsaAlgorithm.NONE
@@ -111,6 +132,7 @@ class PlatformKeyAttributes:
             0,  # Reserved, only used if key id encodes owner id
         )
 
+
 def is_valid_hexa_code(string):
     try:
         int(string, 16)
@@ -118,15 +140,16 @@ def is_valid_hexa_code(string):
     except ValueError:
         return False
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate PSA key attributes and write to stdout or"
-                    "create or append the information including the key to a"
-                    "nrfutil compatible json file. Also supports reading key"
-                    "from a PEM file in some cases. Key source can either be"
-                    "a RAW key using the --key argument, a randomly generated"
-                    "key using the --trng-key argument or a public key can be"
-                    "read from a .PEM file. These are mutual exclusive.",
+        "create or append the information including the key to a"
+        "nrfutil compatible json file. Also supports reading key"
+        "from a PEM file in some cases. Key source can either be"
+        "a RAW key using the --key argument, a randomly generated"
+        "key using the --trng-key argument or a public key can be"
+        "read from a .PEM file. These are mutual exclusive.",
         allow_abbrev=False,
     )
 
@@ -221,26 +244,38 @@ def main() -> None:
         choices=[x.name for x in PsaCracenUsageSceme],
     )
 
+    parser.add_argument(
+        "--persistence",
+        help="CRACEN KMU Slot persistence scheme",
+        type=str,
+        required=False,
+        default="PSA_DEFAULT",
+        choices=[x.name for x in PsaCracenPersistenceSceme],
+    )
+
     args = parser.parse_args()
 
-    metadata = PlatformKeyAttributes(key_type=PsaKeyType[args.type],
-                              identifier=args.id,
-                              location=PsaKeyLifetime[args.location],
-                              usage=PsaUsage[args.usage],
-                              algorithm=PsaAlgorithm[args.algorithm],
-                              size=args.size,
-                              cracen_usage=PsaCracenUsageSceme[args.cracen_usage]).pack()
+    metadata = PlatformKeyAttributes(
+        key_type=PsaKeyType[args.type],
+        identifier=args.id,
+        location=PsaKeyLifetime[args.location],
+        usage=PsaUsage[args.usage],
+        algorithm=PsaAlgorithm[args.algorithm],
+        size=args.size,
+        cracen_usage=PsaCracenUsageSceme[args.cracen_usage],
+        persistence=PsaCracenPersistenceSceme[args.persistence],
+    ).pack()
 
     metadata_str = binascii.hexlify(metadata).decode('utf-8').upper()
 
     if args.file and Path(args.file).is_file():
         with open(args.file, encoding="utf-8") as file:
-            json_data= json.load(file)
+            json_data = json.load(file)
     else:
-        json_data= json.loads('{ "version": 0, "keyslots": [ ]}')
+        json_data = json.loads('{ "version": 0, "keyslots": [ ]}')
 
     if args.trng_key:
-        value  = f'TRNG:{int(math.ceil(args.size / 8))}'
+        value = f'TRNG:{int(math.ceil(args.size / 8))}'
     elif args.key:
         key = args.key
         while key.startswith("0x"):
@@ -253,8 +288,7 @@ def main() -> None:
         key_data = args.key_from_file.read()
         key = serialization.load_pem_public_key(key_data)
         key = key.public_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PublicFormat.Raw
+            encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
         )
         value = f'0x{key.hex()}'
     else:
