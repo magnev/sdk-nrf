@@ -275,19 +275,20 @@ def generate_attr_file(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Generate PSA key attributes and write to stdout or"
-        "create or append the information including the key to a"
-        "nrfutil compatible json file. Also supports reading key"
-        "from a PEM file in some cases. Key source can either be"
-        "a RAW key using the --key argument, a randomly generated"
-        "key using the --trng-key argument or a public key can be"
-        "read from a .PEM file. These are mutual exclusive.",
+        description="Generate Platform Security Architecture (PSA) key attributes and write them"
+        "to standard output. Alternatively, create or append the information including the key"
+        "to a JSON file compatible with nRF Util."
+        ""
+        "The script also supports reading key from a PEM file in some cases."
+        "Key source can be a RAW key using the `--key` argument, a randomly generated key"
+        "using the `--trng-key` argument, or a public key that can be read from a PEM file."
+        "All three options are mutually exclusive.",
         allow_abbrev=False,
     )
 
     parser.add_argument(
         "--usage",
-        help="PSA key usage flags that encodes the permitted usage of a key. More details can found in the code",
+        help="PSA key usage flags that encode the permitted usage of a key. For more details, see the code",
         type=str,
         required=True,
         choices=[x.name for x in PsaKeyUsage],
@@ -334,7 +335,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--persistence",
-        help="Persistence mode for key",
+        help="Persistence mode for the key",
         type=str,
         required=True,
         choices=[x.name for x in PsaKeyPersistence],
@@ -351,36 +352,36 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--key",
-        help="Key value as hex-string: 0x1234567890ABCDEF... "
-        "Note that ECC secp256r1 public keys should be in uncompressed format, which is 65 bytes",
+        help="Key value as a HEX string: 0x1234567890ABCDEF... "
+        "ECC secp256r1 public keys should be in an uncompressed, 65-byte format",
         type=str,
         required=False,
     )
 
     parser.add_argument(
         "--trng-key",
-        help="Generate key randomly on target using TRNG. Should not be done for ECC keys.",
+        help="Generate a key randomly on the target using the TRNG. Should not be done for ECC keys.",
         action="store_true",
         required=False,
     )
 
     parser.add_argument(
         "--key-from-file",
-        help="(Experimental) Read key from PEM file",
+        help="(Experimental) Read a key from a PEM file",
         type=argparse.FileType(mode="rb"),
         required=False,
     )
 
     parser.add_argument(
         "--bin-output",
-        help="Output metadata as binary",
+        help="Output metadata as a binary blob",
         action="store_true",
         required=False,
     )
 
     parser.add_argument(
         "--file",
-        help="JSON file to create or modify",
+        help="JSON file to create or modify. If the file does not exist, it will be created. If it exists, the keys will be added to the existing file.",
         type=str,
         required=False,
     )
