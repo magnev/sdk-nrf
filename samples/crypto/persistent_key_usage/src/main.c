@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <psa/crypto.h>
 #include <psa/crypto_extra.h>
+#include <cracen_psa.h>
+#include <hw_unique_key.h>
 
 #ifdef CONFIG_BUILD_WITH_TFM
 #include <tfm_ns_interface.h>
@@ -37,12 +39,17 @@ LOG_MODULE_REGISTER(persistent_key_usage, LOG_LEVEL_DBG);
 /* The key id for the persistent key. The macros PSA_KEY_ID_USER_MIN and
  * PSA_KEY_ID_USER_MAX define the range of freely available key ids.
  */
-#define SAMPLE_PERS_KEY_ID				PSA_KEY_ID_USER_MIN
+#define SAMPLE_PERS_KEY_ID				69
 #define SAMPLE_KEY_TYPE					PSA_KEY_TYPE_AES
 #define SAMPLE_ALG					PSA_ALG_CTR
 #define NRF_CRYPTO_EXAMPLE_PERSISTENT_KEY_MAX_TEXT_SIZE (100)
 
 static psa_key_id_t key_id;
+
+static uint8_t seed[48] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
+			   0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+			   0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24,
+			   0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30};
 
 /* Below text is used as plaintext for encryption/decryption */
 static uint8_t m_plain_text[NRF_CRYPTO_EXAMPLE_PERSISTENT_KEY_MAX_TEXT_SIZE] = {
@@ -56,11 +63,6 @@ static uint8_t m_decrypted_text[NRF_CRYPTO_EXAMPLE_PERSISTENT_KEY_MAX_TEXT_SIZE]
 int crypto_init(void)
 {
 	psa_status_t status;
-
-#if	defined(CONFIG_TRUSTED_STORAGE_BACKEND_AEAD_KEY_DERIVE_FROM_HUK) || \
-	defined(CONFIG_SECURE_STORAGE_ITS_TRANSFORM_AEAD_KEY_PROVIDER_HUK_LIBRARY)
-	write_huk();
-#endif
 
 	/* Initialize PSA Crypto */
 	status = psa_crypto_init();
@@ -77,7 +79,7 @@ int crypto_finish(void)
 
 	/* Destroy the key handle */
 	status = psa_destroy_key(key_id);
-	if (status != PSA_SUCCESS) {
+	if (status != PSA_ERROR_DATA_INVALID) {
 		LOG_INF("psa_destroy_key failed! (Error: %d)", status);
 		return APP_ERROR;
 	}
@@ -85,7 +87,39 @@ int crypto_finish(void)
 	return APP_SUCCESS;
 }
 
-int generate_persistent_key(void)
+__attribute__((used)) int provision_seed(void)
+{
+	psa_status_t status;
+
+	LOG_INF("Provisioning seed...");
+
+	/* Configure the key attributes */
+	psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
+
+	psa_key_id_t seed_key_id = PSA_KEY_HANDLE_FROM_CRACEN_KMU_SLOT(
+		CRACEN_KMU_KEY_USAGE_SCHEME_SEED, 183);
+
+	psa_set_key_usage_flags(&key_attributes, PSA_KEY_USAGE_DERIVE);
+	psa_set_key_lifetime(&key_attributes,
+			     PSA_KEY_LIFETIME_FROM_PERSISTENCE_AND_LOCATION(
+				     PSA_KEY_PERSISTENCE_DEFAULT, PSA_KEY_LOCATION_CRACEN_KMU));
+	psa_set_key_id(&key_attributes, seed_key_id);
+	psa_set_key_algorithm(&key_attributes, PSA_ALG_NONE);
+	psa_set_key_type(&key_attributes, PSA_KEY_TYPE_RAW_DATA);
+	psa_set_key_bits(&key_attributes, 384);
+
+	PRINT_HEX("key_attributes", (uint8_t * ) &key_attributes, sizeof(key_attributes));
+
+	status = psa_import_key(&key_attributes, seed, sizeof(seed), &seed_key_id);
+	if (status != PSA_SUCCESS) {
+		LOG_INF("psa_import_key for seed failed! (Error: %d)", status);
+		return APP_ERROR;
+	}
+
+	return APP_SUCCESS;
+}
+
+int generate_protected_kmu_key(void)
 {
 	psa_status_t status;
 
@@ -94,14 +128,20 @@ int generate_persistent_key(void)
 	/* Configure the key attributes */
 	psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
 
+	int key_usage_scheme = CRACEN_KMU_KEY_USAGE_SCHEME_PROTECTED;
+
+	key_id = PSA_KEY_HANDLE_FROM_CRACEN_KMU_SLOT(key_usage_scheme, SAMPLE_PERS_KEY_ID);
+
 	psa_set_key_usage_flags(&key_attributes, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT);
 	psa_set_key_algorithm(&key_attributes, SAMPLE_ALG);
 	psa_set_key_type(&key_attributes, SAMPLE_KEY_TYPE);
 	psa_set_key_bits(&key_attributes, 128);
 
 	/* Persistent key specific settings */
-	psa_set_key_lifetime(&key_attributes, PSA_KEY_LIFETIME_PERSISTENT);
-	psa_set_key_id(&key_attributes, SAMPLE_PERS_KEY_ID);
+	psa_set_key_lifetime(&key_attributes,
+			     PSA_KEY_LIFETIME_FROM_PERSISTENCE_AND_LOCATION(
+				     PSA_KEY_PERSISTENCE_DEFAULT, PSA_KEY_LOCATION_CRACEN_KMU));
+	psa_set_key_id(&key_attributes, key_id);
 
 	/* Generate a random AES key with persistent lifetime. The key can be used for
 	 * encryption/decryption using the key_id.
@@ -125,6 +165,15 @@ int generate_persistent_key(void)
 
 	LOG_INF("Persistent key generated successfully!");
 
+	// Make sure the key is not exportable
+	uint8_t buf[16] = {0};
+	size_t  out_len = 0;
+	status = psa_export_key(key_id, buf, sizeof(buf), &out_len);
+	if (status != PSA_ERROR_NOT_PERMITTED) {
+		LOG_INF("psa_export_key succeeded for ptoected key! (Error: %d)", status);
+		return APP_ERROR;
+	}
+
 	return APP_SUCCESS;
 }
 
@@ -133,9 +182,8 @@ int use_persistent_key(void)
 	uint32_t olen;
 	psa_status_t status;
 
-	status = psa_cipher_encrypt((psa_key_id_t)SAMPLE_PERS_KEY_ID, SAMPLE_ALG, m_plain_text,
-				    sizeof(m_plain_text), m_encrypted_text,
-				    sizeof(m_encrypted_text), &olen);
+	status = psa_cipher_encrypt(key_id, SAMPLE_ALG, m_plain_text, sizeof(m_plain_text),
+				    m_encrypted_text, sizeof(m_encrypted_text), &olen);
 	if (status != PSA_SUCCESS) {
 		LOG_INF("psa_cipher_encrypt failed! (Error: %d)", status);
 		return APP_ERROR;
@@ -145,9 +193,8 @@ int use_persistent_key(void)
 	PRINT_HEX("Plaintext", m_plain_text, sizeof(m_plain_text));
 	PRINT_HEX("Encrypted text", m_encrypted_text, sizeof(m_encrypted_text));
 
-	status = psa_cipher_decrypt((psa_key_id_t)SAMPLE_PERS_KEY_ID, SAMPLE_ALG, m_encrypted_text,
-				    sizeof(m_encrypted_text), m_decrypted_text,
-				    sizeof(m_decrypted_text), &olen);
+	status = psa_cipher_decrypt(key_id, SAMPLE_ALG, m_encrypted_text, sizeof(m_encrypted_text),
+				    m_decrypted_text, sizeof(m_decrypted_text), &olen);
 	if (status != PSA_SUCCESS) {
 		LOG_INF("psa_cipher_decrypt failed! (Error: %d)", status);
 		return APP_ERROR;
@@ -179,7 +226,13 @@ int main(void)
 		return APP_ERROR;
 	}
 
-	status = generate_persistent_key();
+	status = provision_seed();
+	if (status != APP_SUCCESS) {
+		LOG_INF(APP_ERROR_MESSAGE);
+		return APP_ERROR;
+	}
+
+	status = generate_protected_kmu_key();
 	if (status != APP_SUCCESS) {
 		LOG_INF(APP_ERROR_MESSAGE);
 		return APP_ERROR;
