@@ -24,6 +24,12 @@ from cryptography.hazmat.primitives import serialization
 PSA_KEY_USAGE_EXPORT = 0x01
 PSA_KEY_USAGE_COPY = 0x02
 
+# PSA definitions for AEAD tag size encoding
+CRACEN_KMU_MIN_TAG_SIZE_BYTES = 4
+PSA_AEAD_TAG_LENGTH_OFFSET = 16
+PSA_ALG_AEAD_TAG_LENGTH_MASK = 0x003F0000
+PSA_ALG_AEAD_AT_LEAST_THIS_LENGTH_FLAG = 0x00008000
+
 
 class PsaKeyType(IntEnum):
     """The type of the key"""
@@ -153,7 +159,7 @@ class PsaAlgorithm(IntEnum):
     GCM = 0x05500200
 
     # PSA_ALG_CHACHA20_POLY1305
-    CHAHA20_POLY1305 = 0x05100500
+    CHACHA20_POLY1305 = 0x05100500
 
     # PSA_ALG_HMAC(PSA_ALG_SHA_256)
     HMAC_SHA256 = 0x03800009
@@ -182,6 +188,7 @@ class PlatformKeyAttributes:
         location: PsaKeyLocation,
         key_usage: PsaKeyUsage,
         algorithm: PsaAlgorithm,
+        allow_any_aead_tag_size: bool,
         key_bits: int,
         persistence: PsaKeyPersistence = PsaKeyPersistence.PERSISTENCE_DEFAULT,
         cracen_usage: PsaCracenUsageScheme = PsaCracenUsageScheme.RAW,
@@ -196,6 +203,7 @@ class PlatformKeyAttributes:
         self.usage = key_usage
         self.alg0 = algorithm
         self.alg1 = PsaAlgorithm.NONE
+        self.allow_any_aead_tag_size = allow_any_aead_tag_size
         self.cracen_usage = cracen_usage
         self.allow_export = allow_export
         self.allow_copy = allow_copy
@@ -227,8 +235,13 @@ class PlatformKeyAttributes:
         """Perform sanity checks on the key attributes"""
 
         # Generic checks
-        if self.key_type != PsaKeyType.AES and self.cracen_usage == PsaCracenUsageScheme.PROTECTED:
-            raise ValueError("PROTECTED usage scheme for CRACEN can only be used with AES key type")
+        if (
+            self.key_type != PsaKeyType.AES
+            and self.cracen_usage == PsaCracenUsageScheme.PROTECTED
+        ):
+            raise ValueError(
+                "PROTECTED usage scheme for CRACEN can only be used with AES key type"
+            )
 
         if (
             self.allow_copy or self.allow_export
@@ -273,13 +286,15 @@ class PlatformKeyAttributes:
                 )
 
         # Chacha20Poly1305 algorithm
-        elif self.alg0 == PsaAlgorithm.CHAHA20_POLY1305:
+        elif self.alg0 == PsaAlgorithm.CHACHA20_POLY1305:
             if self.key_type != PsaKeyType.CHACHA20:
                 raise ValueError(
                     f"Algorithm {self.alg0.name} can only be used with the CHACHA20 key type"
                 )
             if self.key_bits != 256:
-                raise ValueError(f"Algorithm {self.alg0.name} only supports 256-bit keys")
+                raise ValueError(
+                    f"Algorithm {self.alg0.name} only supports 256-bit keys"
+                )
             if self.usage not in (
                 PsaKeyUsage.ENCRYPT,
                 PsaKeyUsage.DECRYPT,
@@ -321,16 +336,21 @@ class PlatformKeyAttributes:
                 raise ValueError(
                     f"Algorithm {self.alg0.name} only supports 256-bit and 384-bit keys"
                 )
-            if self.key_type == PsaKeyType.ECC_PUBLIC_KEY_SECP_R1 and self.usage not in (
-                PsaKeyUsage.VERIFY,
+            if (
+                self.key_type == PsaKeyType.ECC_PUBLIC_KEY_SECP_R1
+                and self.usage not in (PsaKeyUsage.VERIFY,)
             ):
                 raise ValueError(
                     f"Key type {self.key_type.name} can only be used with the VERIFY key usage"
                 )
-            elif self.key_type == PsaKeyType.ECC_KEY_PAIR_SECP_R1 and self.usage not in (
-                PsaKeyUsage.SIGN,
-                PsaKeyUsage.VERIFY,
-                PsaKeyUsage.SIGN_VERIFY,
+            elif (
+                self.key_type == PsaKeyType.ECC_KEY_PAIR_SECP_R1
+                and self.usage
+                not in (
+                    PsaKeyUsage.SIGN,
+                    PsaKeyUsage.VERIFY,
+                    PsaKeyUsage.SIGN_VERIFY,
+                )
             ):
                 raise ValueError(
                     f"Key type {self.key_type.name} can only be used with the SIGN, VERIFY or SIGN_VERIFY key usage"
@@ -346,17 +366,24 @@ class PlatformKeyAttributes:
                     f"Algorithm {self.alg0.name} can only be used with the Twisted Edwards key type"
                 )
             if self.key_bits != 255:
-                raise ValueError(f"Algorithm {self.alg0.name} only supports 255-bit keys")
-            if self.key_type == PsaKeyType.ECC_PUBLIC_KEY_TWISTED_EDWARDS and self.usage not in (
-                PsaKeyUsage.VERIFY,
+                raise ValueError(
+                    f"Algorithm {self.alg0.name} only supports 255-bit keys"
+                )
+            if (
+                self.key_type == PsaKeyType.ECC_PUBLIC_KEY_TWISTED_EDWARDS
+                and self.usage not in (PsaKeyUsage.VERIFY,)
             ):
                 raise ValueError(
                     f"Key type {self.key_type.name} can only be used with the VERIFY key usage"
                 )
-            elif self.key_type == PsaKeyType.ECC_KEY_PAIR_TWISTED_EDWARDS and self.usage not in (
-                PsaKeyUsage.SIGN,
-                PsaKeyUsage.VERIFY,
-                PsaKeyUsage.SIGN_VERIFY,
+            elif (
+                self.key_type == PsaKeyType.ECC_KEY_PAIR_TWISTED_EDWARDS
+                and self.usage
+                not in (
+                    PsaKeyUsage.SIGN,
+                    PsaKeyUsage.VERIFY,
+                    PsaKeyUsage.SIGN_VERIFY,
+                )
             ):
                 raise ValueError(
                     f"Key type {self.key_type.name} can only be used with the SIGN, VERIFY or SIGN_VERIFY key usage"
@@ -369,7 +396,9 @@ class PlatformKeyAttributes:
                     f"Algorithm {self.alg0.name} can only be used with PsaKeyType.ECC_KEY_PAIR_SECP_R1"
                 )
             if self.key_bits != 256:
-                raise ValueError(f"Algorithm {self.alg0.name} only supports 256-bit keys")
+                raise ValueError(
+                    f"Algorithm {self.alg0.name} only supports 256-bit keys"
+                )
             if self.usage != PsaKeyUsage.DERIVE:
                 raise ValueError(
                     f"Algorithm {self.alg0.name} can only be used with the DERIVE key usage"
@@ -377,6 +406,29 @@ class PlatformKeyAttributes:
 
     def pack(self):
         """Builds a binary blob compatible with the psa_key_attributes_s C struct"""
+
+        if (
+            self.alg0 == PsaAlgorithm.CCM or self.alg0 == PsaAlgorithm.GCM
+        ) and self.allow_any_aead_tag_size:
+            # For AEAD CCM and GCM, the tag size is encoded in alg0. The default value of
+            # PsaAlgorithm.CCM (0x05500100) and PsaAlgorithm.GCM (0x05500200) corresponds to the
+            # default tag size of 16 bytes. If the specified tag size is different than 16, the
+            # alg0 value must be modified to encode the tag size accordingly. For code simplicity,
+            # we always encode the specified tag size in alg0, even if it is 16.
+
+            # Clear the existing tag length bits
+            self.alg0 = self.alg0 & ~(
+                PSA_ALG_AEAD_TAG_LENGTH_MASK | PSA_ALG_AEAD_AT_LEAST_THIS_LENGTH_FLAG
+            )
+
+            # Set the new minimum tag length bits
+            self.alg0 |= (
+                CRACEN_KMU_MIN_TAG_SIZE_BYTES << PSA_AEAD_TAG_LENGTH_OFFSET
+            ) & PSA_ALG_AEAD_TAG_LENGTH_MASK
+
+            # Set the flag to allow any tag size equal or larger than the specified size
+            self.alg0 |= PSA_ALG_AEAD_AT_LEAST_THIS_LENGTH_FLAG
+
         return struct.pack(
             "<hhIIIIII",
             self.key_type,
@@ -471,14 +523,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--allow-usage-export",
         help="Allow the key to be exported; this option adds the PSA_KEY_USAGE_EXPORT usage flag",
-        action='store_true',
+        action="store_true",
         required=False,
     )
 
     parser.add_argument(
         "--allow-usage-copy",
         help="Allow the key to be copied; this option adds the PSA_KEY_USAGE_COPY usage flag",
-        action='store_true',
+        action="store_true",
         required=False,
     )
 
@@ -513,6 +565,13 @@ if __name__ == "__main__":
         required=False,
         default="NONE",
         choices=[x.name for x in PsaAlgorithm],
+    )
+
+    parser.add_argument(
+        "--allow-any-aead-tag-size",
+        help="Allow any AEAD tag size for CCM and GCM algorithms (CCM: 4,6,8,10,12,14,16; GCM: 12,13,14,15,16 bytes)",
+        action="store_true",
+        required=False,
     )
 
     parser.add_argument(
@@ -586,6 +645,7 @@ if __name__ == "__main__":
         location=PsaKeyLocation[args.location],
         key_usage=PsaKeyUsage[args.usage],
         algorithm=PsaAlgorithm[args.algorithm],
+        allow_any_aead_tag_size=args.allow_any_aead_tag_size,
         key_bits=args.key_bits,
         persistence=PsaKeyPersistence[args.persistence],
         cracen_usage=PsaCracenUsageScheme[args.cracen_usage],
