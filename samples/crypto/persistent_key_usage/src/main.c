@@ -41,7 +41,10 @@ LOG_MODULE_REGISTER(persistent_key_usage, LOG_LEVEL_DBG);
 #define SAMPLE_ALG					PSA_ALG_CTR
 #define NRF_CRYPTO_EXAMPLE_PERSISTENT_KEY_MAX_TEXT_SIZE (100)
 
-static psa_key_id_t key_id;
+// More than enough key slots for this example
+#define MAX_KEY_SLOTS 200
+
+static psa_key_id_t key_id[MAX_KEY_SLOTS];
 
 /* Below text is used as plaintext for encryption/decryption */
 static uint8_t m_plain_text[NRF_CRYPTO_EXAMPLE_PERSISTENT_KEY_MAX_TEXT_SIZE] = {
@@ -74,11 +77,14 @@ int crypto_finish(void)
 {
 	psa_status_t status;
 
-	/* Destroy the key handle */
-	status = psa_destroy_key(key_id);
-	if (status != PSA_SUCCESS) {
-		LOG_INF("psa_destroy_key failed! (Error: %d)", status);
-		return APP_ERROR;
+	for (uint32_t i = SAMPLE_PERS_KEY_ID; i < MAX_KEY_SLOTS; i++) {
+
+		/* Destroy the key handle */
+		status = psa_destroy_key(key_id[i]);
+		if (status != PSA_SUCCESS) {
+			LOG_INF("psa_destroy_key failed! (Error: %d)", status);
+			return APP_ERROR;
+		}
 	}
 
 	return APP_SUCCESS;
@@ -100,22 +106,31 @@ int generate_persistent_key(void)
 
 	/* Persistent key specific settings */
 	psa_set_key_lifetime(&key_attributes, PSA_KEY_LIFETIME_PERSISTENT);
-	psa_set_key_id(&key_attributes, SAMPLE_PERS_KEY_ID);
 
+	uint32_t current_key_index = SAMPLE_PERS_KEY_ID;
+
+	do {
 	/* Generate a random AES key with persistent lifetime. The key can be used for
 	 * encryption/decryption using the key_id.
-	 */
-	status = psa_generate_key(&key_attributes, &key_id);
+		*/
+
+		LOG_INF("Generating persistent key with index: %d", current_key_index);
+		psa_set_key_id(&key_attributes, current_key_index);
+
+		status = psa_generate_key(&key_attributes, &key_id[current_key_index]);
+		if (status != PSA_SUCCESS) {
+			LOG_INF("psa_generate_key failed! (Error: %d)", status);
+			return APP_ERROR;
+		}
+
+		LOG_INF("Successfully generated persistent key with index: %d", current_key_index);
+
+		current_key_index++;
+
+	} while (status == PSA_SUCCESS);
+
 	if (status != PSA_SUCCESS) {
 		LOG_INF("psa_generate_key failed! (Error: %d)", status);
-		return APP_ERROR;
-	}
-
-	/* Make sure the key is not in memory anymore, has the same affect then resetting the device
-	 */
-	status = psa_purge_key(key_id);
-	if (status != PSA_SUCCESS) {
-		LOG_INF("psa_purge_key failed! (Error: %d)", status);
 		return APP_ERROR;
 	}
 

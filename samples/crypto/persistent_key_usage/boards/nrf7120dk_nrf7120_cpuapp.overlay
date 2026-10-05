@@ -1,0 +1,18 @@
+
+
+&cpuapp_mram {
+    #address-cells = <1>;
+    #size-cells = <1>;
+    status = "okay";
+    partitions {
+
+        /delete-node/ partition@3f2000; // storage_partition
+
+        storage_partition: partition@3f2000 {
+            compatible = "zephyr,mapped-partition";
+            label = "storage";
+            reg = < 0x3f2000 0x2000 >;
+        };
+
+    };
+};
